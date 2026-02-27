@@ -14,7 +14,7 @@ Stack Tecnológica:
  • Back-end: Python utilizando os frameworks FastAPI ou Flask.
  • Banco de Dados: MySQL.
  • Inteligência Artificial: Biblioteca scikit-learn para previsões e sugestões.
- • Ferramentas de Apoio: GitHub (versionamento), Figma (prototipação), Trello (gestão de tarefas) e Postman (testes de API).
+ • Ferramentas de Apoio: GitHub (versionamento), Figma (prototipação) e Postman (testes de API).
 
 
 Metodologia:
@@ -26,7 +26,8 @@ Metodologia:
 
 Principais Funcionalidades:
  • Gestão de Metas: Definição de metas mensais de renda pelo usuário.
- • Cálculo Inteligente: Cálculo automático do valor diário necessário para atingir o objetivo financeiro, considerando os dias restantes no mês.
+ • Cálculo Inteligente: Cálculo automático do valor diário necessário para atingir o objetivo financeiro,
+   considerando os dias restantes no mês.
  • Registro Ágil: Lançamento rápido de ganhos diários através do aplicativo mobile.
  • Análise Visual: Dashboard completo comparando metas estabelecidas versus valores realizados.
  • IA e Predição: Previsão de fluxo de caixa baseada em padrões históricos e sugestões financeiras estratégicas.
