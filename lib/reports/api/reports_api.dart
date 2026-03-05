@@ -1,27 +1,31 @@
 import '../../core/api_client.dart';
 
+class ReportsSummary {
+  final List<Map<String, dynamic>> dailyIncome;
+  final List<Map<String, dynamic>> byCategory;
+
+  const ReportsSummary({required this.dailyIncome, required this.byCategory});
+}
+
 class ReportsApi {
-  static Future<List<Map<String, dynamic>>> dailyIncome() async {
-    final resp = await ApiClient.get('/reports/daily-income');
-    if (resp.ok && resp.data is List) {
-      return (resp.data as List).map((e) => Map<String, dynamic>.from(e)).toList();
-    }
-    return [];
-  }
+  /// Fetches both report datasets from /dashboard/summary in a single call.
+  static Future<ReportsSummary> getSummary() async {
+    final resp = await ApiClient.get('/dashboard/summary');
+    if (resp.ok && resp.data is Map) {
+      final map = resp.data as Map;
 
-  static Future<List<Map<String, dynamic>>> byCategory() async {
-    final resp = await ApiClient.get('/reports/by-category');
-    if (resp.ok && resp.data is List) {
-      return (resp.data as List).map((e) => Map<String, dynamic>.from(e)).toList();
-    }
-    return [];
-  }
+      List<Map<String, dynamic>> parseList(dynamic raw) {
+        if (raw is List) {
+          return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+        return [];
+      }
 
-  static Future<List<Map<String, dynamic>>> monthly() async {
-    final resp = await ApiClient.get('/reports/monthly');
-    if (resp.ok && resp.data is List) {
-      return (resp.data as List).map((e) => Map<String, dynamic>.from(e)).toList();
+      return ReportsSummary(
+        dailyIncome: parseList(map['daily_income_last_30_days']),
+        byCategory: parseList(map['expenses_by_category_month']),
+      );
     }
-    return [];
+    return const ReportsSummary(dailyIncome: [], byCategory: []);
   }
 }

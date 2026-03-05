@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/helpers.dart';
 import '../api/transactions_api.dart';
-import 'add_transaction_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -318,7 +317,15 @@ class _FilterSheetState extends State<_FilterSheet> {
     _end = widget.endDate;
   }
 
-  List<String> get _cats => _type == 'income' ? kIncomeCategories : _type == 'expense' ? kExpenseCategories : [...kIncomeCategories, ...kExpenseCategories];
+  List<String> get _cats =>
+      _type == 'income'
+          ? kIncomeCategories
+          : _type == 'expense'
+              ? kExpenseCategories
+              : [...kIncomeCategories, ...kExpenseCategories];
+
+  bool get _hasFilters =>
+      _type != null || _category != null || _start != null || _end != null;
 
   Future<void> _pickDate(bool isStart) async {
     final picked = await showDatePicker(
@@ -329,93 +336,258 @@ class _FilterSheetState extends State<_FilterSheet> {
     );
     if (picked != null) {
       setState(() {
-        if (isStart) _start = picked; else _end = picked;
+        if (isStart) {
+          _start = picked;
+        } else {
+          _end = picked;
+        }
       });
     }
   }
 
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: kTextSecondary, fontSize: 13),
+      filled: true,
+      fillColor: kBackground,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kPrimary, width: 1.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // If category no longer valid after type change, reset it
+    if (_category != null && !_cats.contains(_category)) {
+      _category = null;
+    }
+
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Handle
             Center(
-              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Header row
+            Row(
+              children: [
+                const Text(
+                  'Filtrar lançamentos',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: kTextPrimary,
+                  ),
+                ),
+                const Spacer(),
+                if (_hasFilters)
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _type = null;
+                      _category = null;
+                      _start = null;
+                      _end = null;
+                    }),
+                    style: TextButton.styleFrom(
+                      foregroundColor: kDanger,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('Limpar tudo'),
+                  ),
+              ],
             ),
             const SizedBox(height: 20),
-            const Text('Filtros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            const Text('Tipo', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(label: const Text('Todos'), selected: _type == null, onSelected: (_) => setState(() { _type = null; _category = null; })),
-                ChoiceChip(label: const Text('Ganhos'), selected: _type == 'income', onSelected: (_) => setState(() { _type = 'income'; _category = null; }), selectedColor: kIncomeGreen.withOpacity(0.2)),
-                ChoiceChip(label: const Text('Gastos'), selected: _type == 'expense', onSelected: (_) => setState(() { _type = 'expense'; _category = null; }), selectedColor: kExpenseRed.withOpacity(0.2)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Categoria', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ChoiceChip(label: const Text('Todas'), selected: _category == null, onSelected: (_) => setState(() => _category = null)),
-                ..._cats.map((c) => ChoiceChip(label: Text(c), selected: _category == c, onSelected: (_) => setState(() => _category = c))),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Período', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
+
+            // Tipo + Categoria in a row
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_today, size: 16),
-                    label: Text(_start != null ? DateFormat('dd/MM/yy').format(_start!) : 'Início'),
-                    onPressed: () => _pickDate(true),
+                  child: DropdownButtonFormField<String>(
+                    value: _type,
+                    decoration: _dropdownDecoration('Tipo'),
+                    style: const TextStyle(color: kTextPrimary, fontSize: 14),
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('Todos')),
+                      DropdownMenuItem(value: 'income', child: Text('Ganhos')),
+                      DropdownMenuItem(value: 'expense', child: Text('Gastos')),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _type = v;
+                      _category = null;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_today, size: 16),
-                    label: Text(_end != null ? DateFormat('dd/MM/yy').format(_end!) : 'Fim'),
-                    onPressed: () => _pickDate(false),
+                  child: DropdownButtonFormField<String>(
+                    value: _cats.contains(_category) ? _category : null,
+                    decoration: _dropdownDecoration('Categoria'),
+                    style: const TextStyle(color: kTextPrimary, fontSize: 14),
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Todas')),
+                      ..._cats.map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _category = v),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Período label
+            const Text(
+              'Período',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Date pickers row
+            Row(
+              children: [
+                Expanded(child: _DatePickerTile(
+                  label: 'De',
+                  date: _start,
+                  onTap: () => _pickDate(true),
+                  onClear: _start != null ? () => setState(() => _start = null) : null,
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _DatePickerTile(
+                  label: 'Até',
+                  date: _end,
+                  onTap: () => _pickDate(false),
+                  onClear: _end != null ? () => setState(() => _end = null) : null,
+                )),
               ],
             ),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      widget.onApply(null, null, null, null);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Limpar'),
+
+            // Apply button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  widget.onApply(_type, _category, _start, _end);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPrimary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  elevation: 0,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      widget.onApply(_type, _category, _start, _end);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Aplicar'),
-                  ),
+                child: const Text(
+                  'Aplicar filtros',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DatePickerTile extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  const _DatePickerTile({
+    required this.label,
+    required this.date,
+    required this.onTap,
+    this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasDate = date != null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: hasDate ? kPrimary.withOpacity(0.07) : kBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasDate ? kPrimary.withOpacity(0.4) : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 15,
+              color: hasDate ? kPrimary : kTextSecondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasDate ? DateFormat('dd/MM/yy').format(date!) : label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: hasDate ? kPrimary : kTextSecondary,
+                  fontWeight: hasDate ? FontWeight.w600 : FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (onClear != null)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close, size: 15, color: kTextSecondary),
+              ),
           ],
         ),
       ),
