@@ -88,6 +88,176 @@ Header:
 - `GET /dashboard/mobile`
 - `GET /dashboard/summary`
 
+---
+
+## Seed (dados prontos para demo)
+
+O projeto tem um comando para popular o `db.sqlite3` com ~6 meses de dados e cenários úteis de apresentação.
+
+Rodar seed (apaga e recria apenas usuários `seed.*`):
+
+```bash
+python manage.py seed_db --clear --months 6
+```
+
+Usuários seed (senha: `seedpass123`):
+
+- `seed.joao_motorista@example.com` (meta atingida no mês atual)
+- `seed.maria_entregadora@example.com` (meta não atingida no mês atual)
+- `seed.pedro_motorista@example.com` (sem meta ativa: dashboards retornam 404)
+- `seed.ana_entregadora@example.com` (meta ativa = 0)
+
+---
+
+## Roteiro de teste (Insomnia)
+
+Sugestão: crie um Environment no Insomnia com:
+
+- `base_url`: `http://127.0.0.1:8000`
+- `access`: (vazio no começo)
+
+E nos requests use:
+
+- URL: `{{ base_url }}/...`
+- Header: `Authorization: Bearer {{ access }}`
+
+### 1) Registrar usuário (cenário "usuário novo")
+
+`POST /auth/register`
+
+```json
+{
+  "name": "Joao Motorista",
+  "email": "joao.motorista@demo.com",
+  "password": "12345678",
+  "password_confirm": "12345678"
+}
+```
+
+Resultado esperado:
+
+- HTTP 201
+- Retorna `access` e `refresh`
+
+Copie o `access` para `{{ access }}` no Insomnia.
+
+### 2) Login (cenário "usuário existente")
+
+`POST /auth/login`
+
+```json
+{
+  "email": "joao.motorista@demo.com",
+  "password": "12345678"
+}
+```
+
+Resultado esperado:
+
+- HTTP 200
+- Retorna `access` e `refresh`
+
+### 3) Ver perfil
+
+`GET /users/me` (protegido)
+
+Resultado esperado:
+
+- HTTP 200
+- Dados do usuário
+
+### 4) Atualizar perfil (opcional)
+
+`PUT /users/me` (protegido)
+
+```json
+{
+  "name": "Joao Motorista (Atualizado)",
+  "profile_photo_url": "https://picsum.photos/200"
+}
+```
+
+### 5) Criar meta
+
+`POST /goals` (protegido)
+
+```json
+{ "amount": "6500.00" }
+```
+
+### 6) Buscar meta ativa
+
+`GET /goals/current` (protegido)
+
+Resultado esperado:
+
+- HTTP 200 se existe meta ativa
+- HTTP 404 (`{"detail":"No active goal"}`) se não existe
+
+### 7) Atualizar meta (troca meta ativa)
+
+1) Descubra o `id` da meta (pelo `GET /goals/current`)
+2) Faça:
+
+`PUT /goals/{id}` (protegido)
+
+```json
+{ "amount": "8000.00" }
+```
+
+### 8) Criar transações (ganhos e despesas)
+
+`POST /transactions` (protegido)
+
+Ganhos (income):
+
+```json
+{ "type": "income", "category": "Uber", "amount": "120.50", "note": "corridas" }
+```
+
+Despesas (expense):
+
+```json
+{ "type": "expense", "category": "Combustível", "amount": "80.00", "note": "posto" }
+```
+
+### 9) Listar transações (paginação + filtros)
+
+`GET /transactions` (protegido)
+
+Exemplos:
+
+- `GET /transactions?page=1`
+- `GET /transactions?type=income`
+- `GET /transactions?category=Uber`
+- `GET /transactions?start_date=2026-03-01&end_date=2026-03-31`
+
+### 10) Editar e deletar uma transação
+
+1) Pegue um `id` no `GET /transactions`
+2) Atualize:
+
+`PUT /transactions/{id}` (protegido)
+
+```json
+{ "category": "Outros", "amount": "99.90", "note": "ajuste" }
+```
+
+3) Delete:
+
+`DELETE /transactions/{id}` (protegido)
+
+### 11) Dashboards
+
+`GET /dashboard/mobile` (protegido)
+
+`GET /dashboard/summary` (protegido)
+
+Resultado esperado:
+
+- HTTP 200 se existe meta ativa
+- HTTP 404 se não existe meta ativa
+
 ## Exemplos (curl)
 
 ### Register
