@@ -35,6 +35,7 @@ db.sqlite3.bak*
 .env
 .env.*
 .envrc
+!.env.example
 
 # Unit test / coverage
 htmlcov/
