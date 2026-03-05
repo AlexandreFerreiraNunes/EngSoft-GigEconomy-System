@@ -3,11 +3,20 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
 # Virtual environments
 env/
 .venv/
 venv/
 ENV/
+.pixi/
+__pypackages__/
 
 # Django
 *.log
@@ -25,19 +34,19 @@ db.sqlite3.bak*
 # Environment variables / secrets
 .env
 .env.*
+.envrc
 
 # Unit test / coverage
-.coverage
-coverage.xml
 htmlcov/
+.coverage
+.coverage.*
+coverage.xml
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 
 # ---- Node / Vite / React ----
 node_modules/
-dist/
-build/
 .vite/
 
 # Logs
@@ -58,4 +67,6 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+# Project-specific
 prompt_sistema_gig_economy.md
