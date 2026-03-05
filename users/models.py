@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class UserManager(BaseUserManager):
@@ -24,18 +25,22 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    name = models.CharField(max_length=100)
-    email = models.EmailField(max_length=150, unique=True)
-    profile_photo_url = models.URLField(max_length=500, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(_("nome"), max_length=100)
+    email = models.EmailField(_("e-mail"), max_length=150, unique=True)
+    profile_photo_url = models.URLField(_("URL da foto de perfil"), max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
 
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(_("ativo"), default=True)
+    is_staff = models.BooleanField(_("equipe"), default=False)
 
     objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = ["name"]
+
+    class Meta:
+        verbose_name = _("usuário")
+        verbose_name_plural = _("usuários")
 
     def __str__(self) -> str:
         return self.email

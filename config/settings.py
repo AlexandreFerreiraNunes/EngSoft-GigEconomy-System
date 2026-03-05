@@ -42,10 +42,10 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Local
-    'users',
-    'goals',
-    'transactions',
-    'dashboards',
+    'users.apps.UsersConfig',
+    'goals.apps.GoalsConfig',
+    'transactions.apps.TransactionsConfig',
+    'dashboards.apps.DashboardsConfig',
 ]
 
 MIDDLEWARE = [
@@ -122,7 +122,7 @@ PASSWORD_HASHERS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
 TIME_ZONE = 'UTC'
 

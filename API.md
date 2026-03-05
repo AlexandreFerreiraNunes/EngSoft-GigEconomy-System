@@ -5,6 +5,7 @@
 ```bash
 cd "/home/ghost/Documents/5º Periodo /EngSoft"
 source env/bin/activate
+pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
@@ -127,3 +128,23 @@ curl "http://127.0.0.1:8000/dashboard/mobile" \
 - `created_at` é sempre definido pelo servidor (não editar).
 - Meta ativa: ao criar uma meta nova, a anterior vira `is_active=false`.
 - Isolamento: usuário só acessa dados dele.
+
+## Troubleshooting
+
+### Erro "No module named 'bcrypt'" no login
+
+Instale as dependências (inclui `bcrypt`):
+
+```bash
+pip install -r requirements.txt
+```
+
+### `POST /auth/register` retorna 400
+
+Geralmente é payload inválido. Confirme:
+
+- Campos obrigatórios: `name`, `email`, `password`, `password_confirm`
+- `password` e `password_confirm` iguais
+- Email ainda não cadastrado
+
+Dica: no Insomnia/curl, veja o JSON de erro retornado no body (ele aponta exatamente o campo inválido).

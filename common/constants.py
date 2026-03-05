@@ -20,6 +20,6 @@ EXPENSE_CATEGORIES = [
 
 
 TRANSACTION_TYPES = [
-    ("income", "income"),
-    ("expense", "expense"),
+    ("income", "Receita"),
+    ("expense", "Despesa"),
 ]
