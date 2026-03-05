@@ -24,7 +24,7 @@ class ApiClient {
         Uri.parse('$kBaseUrl$path'),
         headers: await _headers(auth: auth),
       );
-      return ApiResponse(resp.statusCode, _decode(resp.body));
+      return ApiResponse(resp.statusCode, _decode(resp.bodyBytes));
     } catch (e, st) {
       dev.log('GET $path falhou: $e', stackTrace: st);
       return ApiResponse(0, {'error': 'Sem conexão com o servidor'});
@@ -42,7 +42,7 @@ class ApiClient {
         headers: await _headers(auth: auth),
         body: body != null ? jsonEncode(body) : null,
       );
-      return ApiResponse(resp.statusCode, _decode(resp.body));
+      return ApiResponse(resp.statusCode, _decode(resp.bodyBytes));
     } catch (e, st) {
       dev.log('POST $path falhou: $e', stackTrace: st);
       return ApiResponse(0, {'error': 'Sem conexão com o servidor'});
@@ -60,7 +60,7 @@ class ApiClient {
         headers: await _headers(auth: auth),
         body: body != null ? jsonEncode(body) : null,
       );
-      return ApiResponse(resp.statusCode, _decode(resp.body));
+      return ApiResponse(resp.statusCode, _decode(resp.bodyBytes));
     } catch (e, st) {
       dev.log('PUT $path falhou: $e', stackTrace: st);
       return ApiResponse(0, {'error': 'Sem conexão com o servidor'});
@@ -73,18 +73,31 @@ class ApiClient {
         Uri.parse('$kBaseUrl$path'),
         headers: await _headers(auth: auth),
       );
-      return ApiResponse(resp.statusCode, _decode(resp.body));
+      return ApiResponse(resp.statusCode, _decode(resp.bodyBytes));
     } catch (e, st) {
       dev.log('DELETE $path falhou: $e', stackTrace: st);
       return ApiResponse(0, {'error': 'Sem conexão com o servidor'});
     }
   }
 
-  static dynamic _decode(String body) {
+  static dynamic _decode(List<int> bodyBytes) {
     try {
-      return jsonDecode(body);
+      final s = utf8.decode(bodyBytes);
+      return jsonDecode(s);
     } catch (_) {
-      return {'raw': body};
+      // Fallback: try latin1 (ISO-8859-1) if server returned that encoding
+      try {
+        final s2 = latin1.decode(bodyBytes);
+        return jsonDecode(s2);
+      } catch (_) {
+        // Last resort: decode as UTF-8 allowing malformed sequences
+        try {
+          final s3 = utf8.decode(bodyBytes, allowMalformed: true);
+          return jsonDecode(s3);
+        } catch (_) {
+          return {'raw': String.fromCharCodes(bodyBytes)};
+        }
+      }
     }
   }
 }

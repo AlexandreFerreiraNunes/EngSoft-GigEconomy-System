@@ -99,7 +99,7 @@ ThemeData buildAppTheme() {
       ),
       hintStyle: GoogleFonts.inter(color: kTextSecondary, fontSize: 14),
     ),
-    cardTheme: CardThemeData(
+    cardTheme: CardTheme(
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(

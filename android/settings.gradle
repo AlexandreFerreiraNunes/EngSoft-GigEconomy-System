@@ -10,11 +10,35 @@ pluginManagement {
 
     includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
 
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
     plugins {
         id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+        id "com.android.application" version "7.3.1" apply false
+        id "org.jetbrains.kotlin.android" version "1.7.10" apply false
     }
 }
 
 include ":app"
 
+// Force all subprojects (including Flutter plugins) to use the same AGP version
+// so AgpVersionCompatibilityRule doesn't reject mixed 7.2.2 / 7.3.1 versions.
+gradle.beforeProject { p ->
+    p.buildscript.configurations.all { config ->
+        config.resolutionStrategy {
+            force 'com.android.tools.build:gradle:7.3.1'
+        }
+    }
+}
 
+def localPropertiesFile = new File(rootProject.projectDir, "local.properties")
+def properties = new Properties()
+assert localPropertiesFile.exists()
+localPropertiesFile.withReader("UTF-8") { reader -> properties.load(reader) }
+def flutterSdkPath = properties.getProperty("flutter.sdk")
+assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"

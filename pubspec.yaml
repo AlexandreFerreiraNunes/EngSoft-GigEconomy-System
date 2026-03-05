@@ -4,22 +4,22 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.1.5 <4.0.0'
+  sdk: '>=3.0.6 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.2
-  http: ^1.2.1
-  shared_preferences: ^2.2.3
-  fl_chart: ^0.68.0
-  intl: ^0.19.0
-  google_fonts: ^6.1.0
+  cupertino_icons: 
+  http:
+  shared_preferences: 
+  fl_chart: ^0.63.0
+  intl: 
+  google_fonts: ^5.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints:
 
 flutter:
   uses-material-design: true
