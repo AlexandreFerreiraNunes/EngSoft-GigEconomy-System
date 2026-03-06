@@ -26,14 +26,15 @@ class DashboardPageState extends State<DashboardPage> {
 
   Future<void> loadData() async {
     setState(() => _loading = true);
-    debugPrint('[Dashboard] loadData() chamando DashboardApi.getMobile()...');
-    final data = await DashboardApi.getMobile();
+    debugPrint('[Dashboard] loadData() chamando DashboardApi.getDailyTarget()...');
+    final data = await DashboardApi.getDailyTarget();
     debugPrint('[Dashboard] loadData() data recebida: $data');
     if (data != null) {
-      debugPrint('[Dashboard] total_earned = ${data['total_earned']}');
-      debugPrint('[Dashboard] goal_amount  = ${data['goal_amount']}');
-      debugPrint('[Dashboard] daily_needed = ${data['daily_needed']}');
-      debugPrint('[Dashboard] goal_reached = ${data['goal_reached']}');
+      debugPrint('[Dashboard] balance_month  = ${data['balance_month']}');
+      debugPrint('[Dashboard] goal_amount    = ${data['goal_amount']}');
+      debugPrint('[Dashboard] daily_needed   = ${data['daily_needed']}');
+      debugPrint('[Dashboard] goal_reached   = ${data['goal_reached']}');
+      debugPrint('[Dashboard] days_remaining = ${data['days_remaining']}');
     } else {
       debugPrint('[Dashboard] loadData() — API retornou null!');
     }
@@ -57,7 +58,7 @@ class DashboardPageState extends State<DashboardPage> {
     }
 
     final goal = _toDouble(_data?['goal_amount']);
-    final earned = _toDouble(_data?['total_earned']);
+    final earned = _toDouble(_data?['balance_month']);
     final dailyNeeded = _toDouble(_data?['daily_needed']);
     final goalReached = _data?['goal_reached'] == true;
     final percent = goal > 0 ? (earned / goal).clamp(0.0, 1.0) : 0.0;
@@ -179,7 +180,7 @@ class DashboardPageState extends State<DashboardPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _miniStat('Ganho', formatCurrency(earned), kIncomeGreen, percentFont * 0.45),
+                _miniStat('Saldo', formatCurrency(earned), kIncomeGreen, percentFont * 0.45),
                 Container(width: 1, height: ringSize * 0.22, color: Colors.grey.shade200),
                 _miniStat('Meta', formatCurrency(goal), kPrimary, percentFont * 0.45),
               ],

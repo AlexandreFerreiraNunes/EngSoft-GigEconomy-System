@@ -2,6 +2,25 @@ import 'package:flutter/foundation.dart';
 import '../../core/api_client.dart';
 
 class DashboardApi {
+  static Future<Map<String, dynamic>?> getDailyTarget() async {
+    debugPrint('[DashboardApi] GET /dashboard/daily-target — chamando...');
+    final resp = await ApiClient.get('/dashboard/daily-target');
+    debugPrint('[DashboardApi] GET /dashboard/daily-target — status: ${resp.statusCode}');
+    debugPrint('[DashboardApi] GET /dashboard/daily-target — body: ${resp.data}');
+    if (resp.ok && resp.data is Map) {
+      final map = Map<String, dynamic>.from(resp.data);
+      debugPrint('[DashboardApi] getDailyTarget parsed: $map');
+      debugPrint('[DashboardApi]   goal_amount      = ${map['goal_amount']}');
+      debugPrint('[DashboardApi]   balance_month    = ${map['balance_month']}');
+      debugPrint('[DashboardApi]   daily_needed     = ${map['daily_needed']}');
+      debugPrint('[DashboardApi]   goal_reached     = ${map['goal_reached']}');
+      debugPrint('[DashboardApi]   days_remaining   = ${map['days_remaining']}');
+      return map;
+    }
+    debugPrint('[DashboardApi] getDailyTarget FALHOU — resp.ok=${resp.ok}, data type=${resp.data.runtimeType}');
+    return null;
+  }
+
   static Future<Map<String, dynamic>?> getMobile() async {
     debugPrint('[DashboardApi] GET /dashboard/mobile — chamando...');
     final resp = await ApiClient.get('/dashboard/mobile');
