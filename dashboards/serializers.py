@@ -12,6 +12,17 @@ class DashboardMobileSerializer(serializers.Serializer):
     days_remaining = serializers.IntegerField()
     reference_date = serializers.DateField()
 
+class DailyTargetSerializer(serializers.Serializer):
+    goal_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_income_month = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_expense_month = serializers.DecimalField(max_digits=10, decimal_places=2)
+    balance_month = serializers.DecimalField(max_digits=10, decimal_places=2)
+    remaining = serializers.DecimalField(max_digits=10, decimal_places=2)
+    days_remaining = serializers.IntegerField()
+    daily_needed = serializers.DecimalField(max_digits=10, decimal_places=2)
+    goal_reached = serializers.BooleanField()
+    reference_date = serializers.DateField()
+
 
 class DashboardSummarySerializer(serializers.Serializer):
     goal_amount = serializers.DecimalField(max_digits=10, decimal_places=2)

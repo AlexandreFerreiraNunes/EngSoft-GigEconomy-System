@@ -10,7 +10,11 @@ from rest_framework.views import APIView
 from goals.models import Goal
 from transactions.models import Transaction
 
-from .serializers import DashboardMobileSerializer, DashboardSummarySerializer
+from .serializers import (
+    DailyTargetSerializer,
+    DashboardMobileSerializer,
+    DashboardSummarySerializer,
+)
 from .utils import days_remaining_in_month, month_window
 
 
@@ -129,3 +133,56 @@ class DashboardSummaryView(APIView):
             "expenses_by_category_month": expenses_by_category_month,
         }
         return Response(DashboardSummarySerializer(payload).data)
+
+
+class DailyTargetView(APIView):
+    """Quanto o usuário precisa faturar por dia para bater a meta,
+    considerando receitas E despesas (balanço líquido)."""
+
+    def get(self, request):
+        goal = Goal.objects.filter(user=request.user, is_active=True).first()
+        if not goal:
+            return Response(
+                {"detail": "No active goal"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        today = timezone.now().date()
+        start, next_month = month_window(today)
+
+        month_qs = Transaction.objects.filter(
+            user=request.user,
+            created_at__date__gte=start,
+            created_at__date__lt=next_month,
+        )
+        total_income = (
+            month_qs.filter(type="income")
+            .aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        total_expense = (
+            month_qs.filter(type="expense")
+            .aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        balance = total_income - total_expense
+        remaining = goal.amount - balance
+        goal_reached = remaining <= 0
+        remaining_days = days_remaining_in_month(today)
+        daily_needed = (
+            Decimal("0") if goal_reached
+            else (remaining / Decimal(remaining_days)).quantize(Decimal("0.01"))
+        )
+
+        payload = {
+            "goal_amount": goal.amount,
+            "total_income_month": total_income,
+            "total_expense_month": total_expense,
+            "balance_month": balance,
+            "remaining": max(remaining, Decimal("0")),
+            "days_remaining": remaining_days,
+            "daily_needed": daily_needed,
+            "goal_reached": goal_reached,
+            "reference_date": today,
+        }
+        return Response(DailyTargetSerializer(payload).data)
