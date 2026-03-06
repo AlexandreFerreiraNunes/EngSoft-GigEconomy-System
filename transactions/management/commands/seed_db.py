@@ -15,17 +15,18 @@ from goals.models import Goal
 from transactions.models import Transaction
 from users.models import User
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 
 def _month_start(ref: date) -> date:
     return ref.replace(day=1)
 
 
 def _add_months(ref: date, months: int) -> date:
-    """Add months to a date, clamping day to month length."""
-
     year = ref.year + (ref.month - 1 + months) // 12
     month = (ref.month - 1 + months) % 12 + 1
-    # Clamp day
     day = min(ref.day, _days_in_month(year, month))
     return date(year, month, day)
 
@@ -44,55 +45,110 @@ def _month_window(ref: date) -> tuple[date, date]:
     return start, next_month
 
 
-def _aware_dt(d: date, rng: random.Random) -> datetime:
-    # Random time during the day (UTC by default in this project)
-    dt = datetime.combine(d, time(rng.randint(0, 23), rng.randint(0, 59), rng.randint(0, 59)))
+def _aware_dt(d: date, hour: int, minute: int, second: int = 0) -> datetime:
+    dt = datetime.combine(d, time(hour, minute, second))
     tz = timezone.get_current_timezone()
     return timezone.make_aware(dt, tz)
 
 
-def _decimal_amount(rng: random.Random, low: str, high: str) -> Decimal:
-    # Generate 2-decimal monetary values.
-    low_cents = int(Decimal(low) * 100)
-    high_cents = int(Decimal(high) * 100)
-    cents = rng.randint(low_cents, high_cents)
-    return (Decimal(cents) / Decimal(100)).quantize(Decimal("0.01"))
+def _dec(value: float) -> Decimal:
+    return Decimal(str(round(value, 2)))
 
 
-def _create_tx_with_created_at(
-    *,
-    user: User,
-    tx_type: str,
-    category: str,
-    amount: Decimal,
-    note: str | None,
-    created_at: datetime,
-) -> Transaction:
+def _create_tx(*, user, tx_type, category, amount, note, created_at) -> Transaction:
     tx = Transaction.objects.create(
-        user=user,
-        type=tx_type,
-        category=category,
-        amount=amount,
-        note=note,
+        user=user, type=tx_type, category=category, amount=amount, note=note,
     )
-    # `auto_now_add=True` overwrites during create, so adjust after.
     Transaction.objects.filter(pk=tx.pk).update(created_at=created_at)
     tx.created_at = created_at
     return tx
 
 
-def _create_goal_with_created_at(
-    *,
-    user: User,
-    amount: Decimal,
-    is_active: bool,
-    created_at: datetime,
-) -> Goal:
+def _create_goal(*, user, amount, is_active, created_at) -> Goal:
     goal = Goal.objects.create(user=user, amount=amount, is_active=is_active)
     Goal.objects.filter(pk=goal.pk).update(created_at=created_at)
     goal.created_at = created_at
     return goal
 
+
+# ---------------------------------------------------------------------------
+# Realistic patterns
+# ---------------------------------------------------------------------------
+
+# Income ranges per platform (min, max) in BRL
+PLATFORM_INCOME = {
+    "Uber":      (18.0, 85.0),
+    "99":        (15.0, 70.0),
+    "iFood":     (8.0, 38.0),
+    "Rappi":     (10.0, 42.0),
+    "Loggi":     (25.0, 95.0),
+    "Freelance": (50.0, 300.0),
+    "Outros":    (20.0, 150.0),
+}
+
+# Weight for how often each platform shows up (motorista vs entregador)
+MOTORISTA_WEIGHTS = {
+    "Uber": 40, "99": 30, "iFood": 5, "Rappi": 5,
+    "Loggi": 10, "Freelance": 5, "Outros": 5,
+}
+ENTREGADOR_WEIGHTS = {
+    "Uber": 5, "99": 5, "iFood": 35, "Rappi": 30,
+    "Loggi": 15, "Freelance": 5, "Outros": 5,
+}
+
+INCOME_NOTES = {
+    "Uber":      ["Corrida Centro-Aeroporto", "Corrida curta", "Corrida longa",
+                   "Uber X", "Uber Comfort", "Viagem noturna", None, None],
+    "99":        ["Corrida 99Pop", "Corrida 99Comfort", "Corrida curta",
+                   None, None, None],
+    "iFood":     ["Entrega restaurante", "Entrega dupla", "Entrega expressa",
+                   "Pedido grande", None, None],
+    "Rappi":     ["Entrega Rappi", "Entrega dupla", "Pedido mercado",
+                   None, None],
+    "Loggi":     ["Entrega pacote", "Entrega documento", "Rota múltipla",
+                   None, None],
+    "Freelance": ["Serviço de frete", "Mudança pequena", "Entrega especial",
+                   None],
+    "Outros":    ["Gorjeta", "Bônus semanal", "Indicação", None, None],
+}
+
+# Expense patterns: min/max (BRL), freq range per month, realistic notes
+EXPENSE_PATTERNS = {
+    "Combustível": {
+        "min": 50.0, "max": 220.0, "freq": (6, 10),
+        "notes": ["Gasolina", "Etanol", "Abastecimento completo",
+                  "Gasolina aditivada", None],
+    },
+    "Alimentação": {
+        "min": 12.0, "max": 55.0, "freq": (12, 22),
+        "notes": ["Almoço", "Marmita", "Lanche rápido",
+                  "Café + pão de queijo", "Jantar", "Água + salgado", None],
+    },
+    "Manutenção do veículo": {
+        "min": 80.0, "max": 450.0, "freq": (1, 3),
+        "notes": ["Troca de óleo", "Pneu novo", "Revisão",
+                  "Pastilha de freio", "Alinhamento + balanceamento",
+                  "Filtro de ar"],
+    },
+    "Aluguel / Moradia": {
+        "min": 700.0, "max": 1200.0, "freq": (1, 1),
+        "notes": ["Aluguel", "Aluguel + condomínio"],
+    },
+    "Saúde": {
+        "min": 25.0, "max": 180.0, "freq": (0, 2),
+        "notes": ["Farmácia", "Consulta médica", "Exame", "Remédio"],
+    },
+    "Outros": {
+        "min": 15.0, "max": 120.0, "freq": (1, 4),
+        "notes": ["Recarga celular", "Conta de internet", "Conta de luz",
+                  "Seguro veicular", "Lavagem carro", None],
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Seed user specifications
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class SeedUserSpec:
@@ -101,61 +157,56 @@ class SeedUserSpec:
     name: str
     password: str
     scenario: str
+    profile: str  # "motorista" or "entregador"
 
 
 SEED_USERS: list[SeedUserSpec] = [
     SeedUserSpec(
         key="joao_motorista",
-        email="seed.joao_motorista@example.com",
-        name="joao_motorista",
+        email="joao_motorista@example.com",
+        name="João Silva",
         password="seedpass123",
-        scenario="Meta ativa e renda do mês atual >= meta (dashboard goal_reached=true)",
+        scenario="Meta ativa e renda >= meta (goal_reached=true)",
+        profile="motorista",
     ),
     SeedUserSpec(
         key="maria_entregadora",
-        email="seed.maria_entregadora@example.com",
-        name="maria_entregadora",
+        email="maria_entregadora@example.com",
+        name="Maria Santos",
         password="seedpass123",
-        scenario="Meta ativa e renda do mês atual < meta (dashboard daily_needed > 0)",
+        scenario="Meta ativa e renda < meta (daily_needed > 0)",
+        profile="entregador",
     ),
     SeedUserSpec(
         key="pedro_motorista",
-        email="seed.pedro_motorista@example.com",
-        name="pedro_motorista",
+        email="pedro_motorista@example.com",
+        name="Pedro Oliveira",
         password="seedpass123",
-        scenario="Sem meta ativa (endpoints /goals/current e /dashboard/* retornam 404)",
+        scenario="Sem meta ativa (goals/current e dashboard retornam 404)",
+        profile="motorista",
     ),
     SeedUserSpec(
         key="ana_entregadora",
-        email="seed.ana_entregadora@example.com",
-        name="ana_entregadora",
+        email="ana_entregadora@example.com",
+        name="Ana Costa",
         password="seedpass123",
-        scenario="Meta ativa = 0 (dashboard percent_of_goal=0 por proteção)",
+        scenario="Meta ativa = 0 (proteção de divisão por zero)",
+        profile="entregador",
     ),
 ]
 
 
+# ---------------------------------------------------------------------------
+# Command
+# ---------------------------------------------------------------------------
+
 class Command(BaseCommand):
-    help = "Populate db.sqlite3 with ~N months of seed data for all API scenarios."
+    help = "Populate db.sqlite3 with ~N months of realistic seed data."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--months",
-            type=int,
-            default=6,
-            help="How many months of data to generate (including current month). Default: 6",
-        )
-        parser.add_argument(
-            "--seed",
-            type=int,
-            default=20260305,
-            help="Random seed for deterministic generation. Default: 20260305",
-        )
-        parser.add_argument(
-            "--clear",
-            action="store_true",
-            help="Delete previously seeded users (email starting with 'seed.') and their data before seeding.",
-        )
+        parser.add_argument("--months", type=int, default=6)
+        parser.add_argument("--seed", type=int, default=20260306)
+        parser.add_argument("--clear", action="store_true")
 
     def handle(self, *args, **options):
         months: int = options["months"]
@@ -169,350 +220,288 @@ class Command(BaseCommand):
         rng = random.Random(seed)
         today = timezone.now().date()
         start_month = _month_start(_add_months(today, -(months - 1)))
-        end_month = _month_start(today)
+
         month_starts: list[date] = []
         cursor = start_month
-        while cursor <= end_month:
+        while cursor <= _month_start(today):
             month_starts.append(cursor)
             cursor = _add_months(cursor, 1)
 
         with transaction.atomic():
             if clear:
-                deleted, _ = User.objects.filter(email__startswith="seed.").delete()
-                self.stdout.write(self.style.WARNING(f"Cleared previous seed data (deleted objects: {deleted})."))
+                seed_emails = [
+                    "joao_motorista@example.com",
+                    "maria_entregadora@example.com",
+                    "pedro_motorista@example.com",
+                    "ana_entregadora@example.com",
+                ]
+                deleted, _ = User.objects.filter(
+                    email__in=seed_emails
+                ).delete()
+                self.stdout.write(self.style.WARNING(
+                    f"Cleared seed data ({deleted} objects)."
+                ))
 
             users = self._ensure_users()
+            spec_map = {s.key: s for s in SEED_USERS}
             self._ensure_goals(users, rng, today)
-            tx_counts = self._seed_transactions(users, rng, month_starts, today)
+            stats = self._seed_all_transactions(
+                users, spec_map, rng, month_starts, today,
+            )
 
-        self.stdout.write(self.style.SUCCESS("Seed complete."))
-        self.stdout.write(f"Months: {months} (from {start_month.isoformat()} to {today.isoformat()})")
+        self.stdout.write(self.style.SUCCESS("Seed completo."))
+        self.stdout.write(
+            f"Período: {start_month.isoformat()} → {today.isoformat()}"
+        )
         for spec in SEED_USERS:
             self.stdout.write(
-                f"User: {spec.email} | password: {spec.password} | key: {spec.key} | scenario: {spec.scenario}"
+                f"  {spec.email} | senha: {spec.password} | {spec.scenario}"
             )
         self.stdout.write(
-            f"Transactions created: {tx_counts['created']} (income={tx_counts['income']}, expense={tx_counts['expense']})"
+            f"Transações: {stats['total']} "
+            f"(income={stats['income']}, expense={stats['expense']})"
         )
+
+    # -----------------------------------------------------------------------
+    # Users
+    # -----------------------------------------------------------------------
 
     def _ensure_users(self) -> dict[str, User]:
         users: dict[str, User] = {}
         for spec in SEED_USERS:
             user = User.objects.filter(email__iexact=spec.email).first()
             if not user:
-                user = User.objects.create_user(email=spec.email, name=spec.name, password=spec.password)
+                user = User.objects.create_user(
+                    email=spec.email, name=spec.name, password=spec.password,
+                )
             users[spec.key] = user
         return users
 
-    def _ensure_goals(self, users: dict[str, User], rng: random.Random, today: date) -> None:
-        # Ensure different goal scenarios.
-        reached_user = users["joao_motorista"]
-        not_reached_user = users["maria_entregadora"]
-        no_goal_user = users["pedro_motorista"]
-        zero_goal_user = users["ana_entregadora"]
+    # -----------------------------------------------------------------------
+    # Goals
+    # -----------------------------------------------------------------------
 
-        # Wipe existing goals for seed users (just to keep deterministic outcomes)
-        Goal.objects.filter(user__in=[reached_user, not_reached_user, no_goal_user, zero_goal_user]).delete()
+    def _ensure_goals(
+        self, users: dict[str, User], rng: random.Random, today: date,
+    ) -> None:
+        for u in users.values():
+            Goal.objects.filter(user=u).delete()
 
-        now_dt = timezone.now()
-        # Give them some history of goal changes
-        two_months_ago = _add_months(today, -2)
-        _create_goal_with_created_at(
-            user=reached_user,
-            amount=Decimal("2500.00"),
+        # João: old inactive goal + current active R$4.500 (will be reached)
+        _create_goal(
+            user=users["joao_motorista"], amount=_dec(5000),
             is_active=False,
-            created_at=_aware_dt(two_months_ago.replace(day=1), rng),
+            created_at=_aware_dt(
+                _add_months(today, -3).replace(day=1), 9, 0,
+            ),
         )
-        _create_goal_with_created_at(
-            user=reached_user,
-            amount=Decimal("3000.00"),
+        _create_goal(
+            user=users["joao_motorista"], amount=_dec(4500),
             is_active=True,
-            created_at=now_dt,
+            created_at=_aware_dt(
+                _add_months(today, -1).replace(day=15), 10, 30,
+            ),
         )
 
-        _create_goal_with_created_at(
-            user=not_reached_user,
-            amount=Decimal("4000.00"),
+        # Maria: active R$8.000 (will NOT be reached)
+        _create_goal(
+            user=users["maria_entregadora"], amount=_dec(8000),
             is_active=True,
-            created_at=now_dt,
+            created_at=_aware_dt(
+                _add_months(today, -2).replace(day=1), 8, 0,
+            ),
         )
 
-        # No active goal: create an inactive goal (tests /goals/current 404)
-        _create_goal_with_created_at(
-            user=no_goal_user,
-            amount=Decimal("3500.00"),
+        # Pedro: inactive goal only → /goals/current returns 404
+        _create_goal(
+            user=users["pedro_motorista"], amount=_dec(6000),
             is_active=False,
-            created_at=now_dt,
+            created_at=_aware_dt(
+                _add_months(today, -4).replace(day=10), 11, 0,
+            ),
         )
 
-        _create_goal_with_created_at(
-            user=zero_goal_user,
-            amount=Decimal("0.00"),
+        # Ana: active goal = R$0 → division-by-zero guard
+        _create_goal(
+            user=users["ana_entregadora"], amount=_dec(0),
             is_active=True,
-            created_at=now_dt,
+            created_at=_aware_dt(
+                _add_months(today, -1).replace(day=1), 7, 0,
+            ),
         )
 
-    def _seed_transactions(
-        self,
-        users: dict[str, User],
-        rng: random.Random,
-        month_starts: list[date],
-        today: date,
-    ) -> dict[str, int]:
-        seed_users = list(users.values())
-        Transaction.objects.filter(user__in=seed_users).delete()
+    # -----------------------------------------------------------------------
+    # Transactions
+    # -----------------------------------------------------------------------
 
-        created = 0
-        income_created = 0
-        expense_created = 0
+    def _seed_all_transactions(self, users, spec_map, rng, month_starts, today):
+        for u in users.values():
+            Transaction.objects.filter(user=u).delete()
 
-        # Base patterns per user
-        reached_user = users["joao_motorista"]
-        not_reached_user = users["maria_entregadora"]
-        no_goal_user = users["pedro_motorista"]
-        zero_goal_user = users["ana_entregadora"]
+        stats = {"total": 0, "income": 0, "expense": 0}
 
-        for month_start in month_starts:
-            month_end = _add_months(month_start, 1)
-            days = (month_end - month_start).days
-            month_days = [month_start + timedelta(days=i) for i in range(days)]
-            # Never generate transactions with future dates
-            month_days = [d for d in month_days if d <= today]
-            if not month_days:
-                continue
+        for key, user in users.items():
+            profile = spec_map[key].profile
+            for month_start in month_starts:
+                month_end = _add_months(month_start, 1)
+                all_days = [
+                    month_start + timedelta(days=i)
+                    for i in range((month_end - month_start).days)
+                ]
+                # NEVER generate future dates
+                days = [d for d in all_days if d <= today]
+                if not days:
+                    continue
 
-            # Reached/not reached: always have activity
-            created, income_created, expense_created = self._seed_month(
-                rng,
-                user=reached_user,
-                month_days=month_days,
-                income_count=rng.randint(18, 28),
-                expense_count=rng.randint(10, 20),
-                created=created,
-                income_created=income_created,
-                expense_created=expense_created,
-            )
-            created, income_created, expense_created = self._seed_month(
-                rng,
-                user=not_reached_user,
-                month_days=month_days,
-                income_count=rng.randint(10, 18),
-                expense_count=rng.randint(8, 16),
-                created=created,
-                income_created=income_created,
-                expense_created=expense_created,
-            )
-
-            # No-goal user: sparse activity (still useful for transactions endpoints)
-            created, income_created, expense_created = self._seed_month(
-                rng,
-                user=no_goal_user,
-                month_days=month_days,
-                income_count=rng.randint(2, 6),
-                expense_count=rng.randint(2, 6),
-                created=created,
-                income_created=income_created,
-                expense_created=expense_created,
-            )
-
-            # Zero-goal user: include one empty month to test 0-results filters
-            if month_start == month_starts[0]:
-                continue
-            created, income_created, expense_created = self._seed_month(
-                rng,
-                user=zero_goal_user,
-                month_days=month_days,
-                income_count=rng.randint(6, 12),
-                expense_count=rng.randint(6, 12),
-                created=created,
-                income_created=income_created,
-                expense_created=expense_created,
-            )
+                self._seed_month_realistic(rng, user, profile, days, stats)
 
         # Guarantee dashboard scenarios for current month
-        current_month_start, next_month = _month_window(today)
-        self._force_goal_reached_current_month(reached_user, rng, current_month_start, next_month)
-        self._force_goal_not_reached_current_month(not_reached_user, rng, current_month_start, next_month)
-        self._ensure_current_month_expense_categories(reached_user, rng, current_month_start, next_month)
-        self._ensure_current_month_expense_categories(not_reached_user, rng, current_month_start, next_month)
+        self._guarantee_goal_reached(users["joao_motorista"], rng, today)
+        self._guarantee_goal_not_reached(users["maria_entregadora"])
+        self._guarantee_expense_categories(
+            users["joao_motorista"], rng, today,
+        )
+        self._guarantee_expense_categories(
+            users["maria_entregadora"], rng, today,
+        )
 
-        return {"created": created, "income": income_created, "expense": expense_created}
+        return stats
 
-    def _seed_month(
-        self,
-        rng: random.Random,
-        *,
-        user: User,
-        month_days: list[date],
-        income_count: int,
-        expense_count: int,
-        created: int,
-        income_created: int,
-        expense_created: int,
-    ) -> tuple[int, int, int]:
-        # --- Notas realistas por categoria de receita ---
-        income_notes: dict[str, list[str | None]] = {
-            "Uber": [None, "Corrida centro", "Corrida aeroporto", "Viagem longa", "Corrida noturna", "UberX"],
-            "99": [None, "Corrida rápida", "Corrida pop", "Viagem bairro", "Corrida noturna"],
-            "iFood": [None, "Entrega almoço", "Entrega jantar", "Pedido grande", "Entrega rápida", "2 entregas"],
-            "Rappi": [None, "Entrega mercado", "Entrega farmácia", "Entrega restaurante", "Pedido duplo"],
-            "Loggi": [None, "Pacote centro", "Entrega documento", "Pacote grande", "Rota fixa"],
-            "Freelance": [None, "Frete particular", "Mudança pequena", "Serviço avulso"],
-            "Outros": [None, "Gorjeta", "Bônus semanal", "Indicação"],
-        }
-        # --- Notas realistas por categoria de despesa ---
-        expense_notes: dict[str, list[str | None]] = {
-            "Combustível": [None, "Gasolina", "Etanol", "Abastecimento completo", "Posto Shell", "Posto BR"],
-            "Alimentação": [None, "Almoço", "Lanche rápido", "Marmita", "Café da manhã", "Jantar"],
-            "Manutenção do veículo": [None, "Troca de óleo", "Pneu furado", "Revisão", "Pastilha de freio", "Lavagem"],
-            "Aluguel / Moradia": [None, "Aluguel", "Conta de luz", "Conta de água", "Internet", "Condomínio"],
-            "Saúde": [None, "Farmácia", "Consulta médica", "Exame", "Remédio"],
-            "Outros": [None, "Recarga celular", "Seguro veículo", "Multa", "Estacionamento"],
-        }
-        # --- Faixas de valor realistas por categoria de receita (max R$120) ---
-        income_ranges: dict[str, tuple[str, str]] = {
-            "Uber": ("18.00", "120.00"),
-            "99": ("15.00", "95.00"),
-            "iFood": ("12.00", "85.00"),
-            "Rappi": ("10.00", "75.00"),
-            "Loggi": ("15.00", "90.00"),
-            "Freelance": ("25.00", "120.00"),
-            "Outros": ("5.00", "60.00"),
-        }
-        # --- Faixas de valor realistas por categoria de despesa (max R$120) ---
-        expense_ranges: dict[str, tuple[str, str]] = {
-            "Combustível": ("30.00", "120.00"),
-            "Alimentação": ("8.00", "35.00"),
-            "Manutenção do veículo": ("25.00", "120.00"),
-            "Aluguel / Moradia": ("80.00", "120.00"),
-            "Saúde": ("15.00", "95.00"),
-            "Outros": ("5.00", "60.00"),
-        }
+    def _seed_month_realistic(self, rng, user, profile, days, stats):
+        """Generate realistic daily transactions for one month."""
 
-        for _ in range(income_count):
-            d = rng.choice(month_days)
-            category = rng.choice(INCOME_CATEGORIES)
-            low, high = income_ranges.get(category, ("15.00", "120.00"))
-            note = rng.choice(income_notes.get(category, [None]))
-            _create_tx_with_created_at(
-                user=user,
-                tx_type="income",
-                category=category,
-                amount=_decimal_amount(rng, low, high),
-                note=note,
-                created_at=_aware_dt(d, rng),
-            )
-            created += 1
-            income_created += 1
+        weights = (
+            MOTORISTA_WEIGHTS if profile == "motorista"
+            else ENTREGADOR_WEIGHTS
+        )
+        platforms = list(weights.keys())
+        platform_weights = [weights[p] for p in platforms]
 
-        for _ in range(expense_count):
-            d = rng.choice(month_days)
-            category = rng.choice(EXPENSE_CATEGORIES)
-            low, high = expense_ranges.get(category, ("10.00", "120.00"))
-            note = rng.choice(expense_notes.get(category, [None]))
-            _create_tx_with_created_at(
-                user=user,
-                tx_type="expense",
-                category=category,
-                amount=_decimal_amount(rng, low, high),
-                note=note,
-                created_at=_aware_dt(d, rng),
-            )
-            created += 1
-            expense_created += 1
-        return created, income_created, expense_created
+        # Pick work days (~70‒85% of available days)
+        num_work_days = max(1, int(len(days) * rng.uniform(0.70, 0.85)))
+        work_days = sorted(
+            rng.sample(days, min(num_work_days, len(days)))
+        )
 
-    def _force_goal_reached_current_month(
-        self,
-        user: User,
-        rng: random.Random,
-        start: date,
-        next_month: date,
-    ) -> None:
+        # --- INCOME: multiple rides/deliveries per work day ---
+        for d in work_days:
+            if profile == "motorista":
+                num_rides = rng.randint(3, 8)
+            else:
+                num_rides = rng.randint(4, 12)
+
+            start_hour = rng.randint(6, 9)
+            for ride_i in range(num_rides):
+                hour = min(23, start_hour + ride_i * rng.randint(1, 3))
+                minute = rng.randint(0, 59)
+
+                platform = rng.choices(
+                    platforms, weights=platform_weights, k=1,
+                )[0]
+                low, high = PLATFORM_INCOME[platform]
+                amount = _dec(rng.uniform(low, high))
+                note = rng.choice(INCOME_NOTES[platform])
+
+                _create_tx(
+                    user=user, tx_type="income", category=platform,
+                    amount=amount, note=note,
+                    created_at=_aware_dt(d, hour, minute),
+                )
+                stats["total"] += 1
+                stats["income"] += 1
+
+        # --- EXPENSES: category-based frequency ---
+        for category, pattern in EXPENSE_PATTERNS.items():
+            freq_min, freq_max = pattern["freq"]
+            count = rng.randint(freq_min, freq_max)
+
+            # Scale down for partial months
+            if len(days) < 25:
+                count = max(0, int(count * len(days) / 30))
+
+            for _ in range(count):
+                d = rng.choice(days)
+                hour = rng.randint(7, 21)
+                minute = rng.randint(0, 59)
+
+                low, high = pattern["min"], pattern["max"]
+                amount = _dec(rng.uniform(low, high))
+                note = rng.choice(pattern["notes"])
+
+                _create_tx(
+                    user=user, tx_type="expense", category=category,
+                    amount=amount, note=note,
+                    created_at=_aware_dt(d, hour, minute),
+                )
+                stats["total"] += 1
+                stats["expense"] += 1
+
+    # -----------------------------------------------------------------------
+    # Dashboard guarantees
+    # -----------------------------------------------------------------------
+
+    def _guarantee_goal_reached(self, user, rng, today):
+        """Ensure João's current-month income >= his active goal."""
         goal = Goal.objects.filter(user=user, is_active=True).first()
         if not goal:
             return
-        total_income = (
+        start, end = _month_window(today)
+        total = (
             Transaction.objects.filter(
-                user=user,
-                type="income",
-                created_at__date__gte=start,
-                created_at__date__lt=next_month,
+                user=user, type="income",
+                created_at__date__gte=start, created_at__date__lt=end,
             ).aggregate(s=Sum("amount"))["s"]
             or Decimal("0")
         )
-
-        if total_income >= goal.amount:
+        if total >= goal.amount:
             return
 
-        # Add multiple small incomes (max R$120 each) to cover the gap.
-        today = timezone.now().date()
-        missing = (goal.amount - total_income) + Decimal("50.00")
-        while missing > Decimal("0"):
-            chunk = min(missing, _decimal_amount(rng, "60.00", "120.00"))
-            _create_tx_with_created_at(
-                user=user,
-                tx_type="income",
-                category=rng.choice(INCOME_CATEGORIES),
-                amount=chunk.quantize(Decimal("0.01")),
-                note=rng.choice(["Corrida longa", "Viagem aeroporto", "Entrega grande", "Bônus"]),
-                created_at=_aware_dt(today, rng),
-            )
-            missing -= chunk
+        missing = goal.amount - total + _dec(rng.uniform(50, 200))
+        _create_tx(
+            user=user, tx_type="income", category="Uber",
+            amount=missing.quantize(Decimal("0.01")),
+            note="Bônus semanal",
+            created_at=_aware_dt(
+                today, rng.randint(14, 18), rng.randint(0, 59),
+            ),
+        )
 
-    def _force_goal_not_reached_current_month(
-        self,
-        user: User,
-        rng: random.Random,
-        start: date,
-        next_month: date,
-    ) -> None:
+    def _guarantee_goal_not_reached(self, user):
+        """Ensure Maria's current-month income < her active goal."""
         goal = Goal.objects.filter(user=user, is_active=True).first()
         if not goal:
             return
-
-        total_income = (
+        start, end = _month_window(timezone.now().date())
+        total = (
             Transaction.objects.filter(
-                user=user,
-                type="income",
-                created_at__date__gte=start,
-                created_at__date__lt=next_month,
+                user=user, type="income",
+                created_at__date__gte=start, created_at__date__lt=end,
             ).aggregate(s=Sum("amount"))["s"]
             or Decimal("0")
         )
+        if total < goal.amount:
+            return
+        new_goal = (total + Decimal("3000")).quantize(Decimal("0.01"))
+        Goal.objects.filter(pk=goal.pk).update(amount=new_goal)
 
-        # Ensure total_income < goal.amount. If not, increase goal slightly.
-        if total_income >= goal.amount:
-            new_goal = (total_income + Decimal("800.00")).quantize(Decimal("0.01"))
-            Goal.objects.filter(pk=goal.pk).update(amount=new_goal)
-            goal.amount = new_goal
-
-    def _ensure_current_month_expense_categories(
-        self,
-        user: User,
-        rng: random.Random,
-        start: date,
-        next_month: date,
-    ) -> None:
+    def _guarantee_expense_categories(self, user, rng, today):
+        """Ensure every expense category exists in the current month."""
+        start, end = _month_window(today)
         present = set(
             Transaction.objects.filter(
-                user=user,
-                type="expense",
-                created_at__date__gte=start,
-                created_at__date__lt=next_month,
+                user=user, type="expense",
+                created_at__date__gte=start, created_at__date__lt=end,
             ).values_list("category", flat=True)
         )
-        missing = [c for c in EXPENSE_CATEGORIES if c not in present]
-        if not missing:
-            return
-
-        today = timezone.now().date()
-        for cat in missing:
-            _create_tx_with_created_at(
-                user=user,
-                tx_type="expense",
-                category=cat,
-                amount=_decimal_amount(rng, "15.00", "85.00"),
-                note="Ajuste seed: cobrir categoria",
-                created_at=_aware_dt(today, rng),
+        for cat in EXPENSE_CATEGORIES:
+            if cat in present:
+                continue
+            pattern = EXPENSE_PATTERNS[cat]
+            _create_tx(
+                user=user, tx_type="expense", category=cat,
+                amount=_dec(rng.uniform(pattern["min"], pattern["max"])),
+                note=rng.choice(pattern["notes"]),
+                created_at=_aware_dt(
+                    today, rng.randint(8, 20), rng.randint(0, 59),
+                ),
             )
