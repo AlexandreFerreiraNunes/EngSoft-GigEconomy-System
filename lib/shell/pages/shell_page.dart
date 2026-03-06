@@ -25,7 +25,10 @@ class _ShellPageState extends State<ShellPage> {
   void initState() {
     super.initState();
     _pages = [
-      DashboardPage(key: _dashKey),
+      DashboardPage(
+        key: _dashKey,
+        onTransactionAdded: () => _historyKey.currentState?.loadData(),
+      ),
       HistoryPage(key: _historyKey),
       const ReportsPage(),
       const SuggestionsPage(),

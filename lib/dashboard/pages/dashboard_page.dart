@@ -6,7 +6,9 @@ import '../api/dashboard_api.dart';
 import '../../transactions/pages/add_transaction_page.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final VoidCallback? onTransactionAdded;
+
+  const DashboardPage({super.key, this.onTransactionAdded});
 
   @override
   State<DashboardPage> createState() => DashboardPageState();
@@ -295,6 +297,9 @@ class DashboardPageState extends State<DashboardPage> {
       ctx,
       MaterialPageRoute(builder: (_) => AddTransactionPage(type: type)),
     );
-    if (result == true) await loadData();
+    if (result == true) {
+      await loadData();
+      widget.onTransactionAdded?.call();
+    }
   }
 }

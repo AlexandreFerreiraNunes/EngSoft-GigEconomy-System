@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../core/api_client.dart';
 
 class TransactionsApi {
@@ -15,7 +16,9 @@ class TransactionsApi {
     if (note != null && note.trim().isNotEmpty) {
       body['note'] = note.trim();
     }
+    debugPrint('[TransactionsApi] create() called — type: $type, category: $category, amount: ${amount.toStringAsFixed(2)}, notePresent: ${note != null && note.trim().isNotEmpty}');
     final resp = await ApiClient.post('/transactions', body: body);
+    debugPrint('[TransactionsApi] create() response — ok: ${resp.ok}, status: ${resp.statusCode}, data: ${resp.data}');
     if (resp.ok) return (ok: true, message: type == 'income' ? 'Ganho registrado!' : 'Gasto registrado!');
     return (ok: false, message: resp.errorMessage);
   }
@@ -34,7 +37,10 @@ class TransactionsApi {
     if (endDate != null) params.add('end_date=$endDate');
     params.add('page=$page');
     final query = params.join('&');
+    debugPrint('[TransactionsApi] list() called — query: $query');
     final resp = await ApiClient.get('/transactions?$query');
+    debugPrint('[TransactionsApi] list() response — ok: ${resp.ok}, status: ${resp.statusCode}, dataType: ${resp.data.runtimeType}');
+    debugPrint('[TransactionsApi] list() data: ${resp.data}');
 
     if (resp.ok) {
       if (resp.data is Map) {
@@ -62,13 +68,17 @@ class TransactionsApi {
     if (category != null) body['category'] = category;
     if (amount != null) body['amount'] = amount.toStringAsFixed(2);
     if (note != null) body['note'] = note;
+    debugPrint('[TransactionsApi] update() called — id: $id, body: $body');
     final resp = await ApiClient.put('/transactions/$id', body: body);
+    debugPrint('[TransactionsApi] update() response — ok: ${resp.ok}, status: ${resp.statusCode}, data: ${resp.data}');
     if (resp.ok) return (ok: true, message: 'Atualizado!');
     return (ok: false, message: resp.errorMessage);
   }
 
   static Future<({bool ok, String message})> delete(int id) async {
+    debugPrint('[TransactionsApi] delete() called — id: $id');
     final resp = await ApiClient.delete('/transactions/$id');
+    debugPrint('[TransactionsApi] delete() response — ok: ${resp.ok}, status: ${resp.statusCode}, data: ${resp.data}');
     if (resp.ok) return (ok: true, message: 'Excluído!');
     return (ok: false, message: resp.errorMessage);
   }

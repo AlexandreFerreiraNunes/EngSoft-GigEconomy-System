@@ -28,6 +28,7 @@ class HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> loadData({bool reset = true}) async {
+    debugPrint('[HistoryPage] loadData() — reset: $reset, page: ${reset ? 1 : _page}, typeFilter: $_typeFilter, categoryFilter: $_categoryFilter');
     if (reset) {
       _page = 1;
       setState(() => _loading = true);
@@ -39,6 +40,7 @@ class HistoryPageState extends State<HistoryPage> {
       endDate: _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
       page: _page,
     );
+    debugPrint('[HistoryPage] loadData() — ok: ${result.ok}, itemCount: ${result.items.length}, hasMore: ${result.hasMore}');
     if (!mounted) return;
     setState(() {
       if (reset) {

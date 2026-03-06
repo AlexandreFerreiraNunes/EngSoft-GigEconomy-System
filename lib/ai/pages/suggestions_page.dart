@@ -25,6 +25,8 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    // Fetch summary once; individual methods read from cache.
+    await AiApi.refreshData();
     final results = await Future.wait([
       AiApi.forecast(),
       AiApi.bestDays(),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const String kBaseUrl = 'http://192.168.12.18:8000';
+const String kBaseUrl = 'http://18.232.35.105';
 
 const Color kPrimary = Color(0xFF6C63FF);
 const Color kPrimaryDark = Color(0xFF4A42D1);
