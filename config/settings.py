@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'goals.apps.GoalsConfig',
     'transactions.apps.TransactionsConfig',
     'dashboards.apps.DashboardsConfig',
+    'ai_predictions.apps.AiPredictionsConfig',
 ]
 
 MIDDLEWARE = [

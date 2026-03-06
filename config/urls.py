@@ -27,5 +27,6 @@ urlpatterns = [
     path('', include('goals.urls')),
     path('', include('transactions.urls')),
     path('', include('dashboards.urls')),
+    path('', include('ai_predictions.urls')),
 ]
 
