@@ -12,33 +12,66 @@ class HistoryPage extends StatefulWidget {
 }
 
 class HistoryPageState extends State<HistoryPage> {
+  static const _kLimit = 20;
+
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
+  bool _loadingMore = false;
   bool _hasMore = false;
-  int _page = 1;
+  int _offset = 0;
+  String _ordering = '-created_at';
   String? _typeFilter;
   String? _categoryFilter;
   DateTime? _startDate;
   DateTime? _endDate;
 
+  final ScrollController _scrollCtrl = ScrollController();
+
+  static const _orderingOptions = <String, String>{
+    '-created_at': 'Mais recentes',
+    'created_at': 'Mais antigos',
+    '-amount': 'Maior valor',
+    'amount': 'Menor valor',
+  };
+
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     loadData();
   }
 
-  Future<void> loadData({bool reset = true}) async {
-    debugPrint('[HistoryPage] loadData() — reset: $reset, page: ${reset ? 1 : _page}, typeFilter: $_typeFilter, categoryFilter: $_categoryFilter');
-    if (reset) {
-      _page = 1;
-      setState(() => _loading = true);
+  @override
+  void dispose() {
+    _scrollCtrl.removeListener(_onScroll);
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loadingMore) return;
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 200) {
+      _loadMore();
     }
+  }
+
+  Future<void> loadData({bool reset = true}) async {
+    if (reset) {
+      _offset = 0;
+      setState(() => _loading = true);
+    } else {
+      setState(() => _loadingMore = true);
+    }
+    debugPrint('[HistoryPage] loadData() — reset: $reset, offset: $_offset, ordering: $_ordering, typeFilter: $_typeFilter, categoryFilter: $_categoryFilter');
     final result = await TransactionsApi.list(
       type: _typeFilter,
       category: _categoryFilter,
       startDate: _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : null,
       endDate: _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
-      page: _page,
+      limit: _kLimit,
+      offset: _offset,
+      ordering: _ordering,
     );
     debugPrint('[HistoryPage] loadData() — ok: ${result.ok}, itemCount: ${result.items.length}, hasMore: ${result.hasMore}');
     if (!mounted) return;
@@ -50,11 +83,12 @@ class HistoryPageState extends State<HistoryPage> {
       }
       _hasMore = result.hasMore;
       _loading = false;
+      _loadingMore = false;
     });
   }
 
   void _loadMore() {
-    _page++;
+    _offset += _kLimit;
     loadData(reset: false);
   }
 
@@ -204,6 +238,31 @@ class HistoryPageState extends State<HistoryPage> {
       appBar: AppBar(
         title: const Text('Histórico'),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Ordenar',
+            onSelected: (value) {
+              if (value != _ordering) {
+                _ordering = value;
+                loadData();
+              }
+            },
+            itemBuilder: (_) => _orderingOptions.entries
+                .map((e) => PopupMenuItem(
+                      value: e.key,
+                      child: Row(
+                        children: [
+                          if (e.key == _ordering)
+                            const Icon(Icons.check, size: 18, color: kPrimary)
+                          else
+                            const SizedBox(width: 18),
+                          const SizedBox(width: 8),
+                          Text(e.value),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          ),
           IconButton(
             icon: Badge(
               isLabelVisible: _typeFilter != null || _categoryFilter != null || _startDate != null,
@@ -227,18 +286,14 @@ class HistoryPageState extends State<HistoryPage> {
                   ),
                 )
               : ListView.builder(
+                  controller: _scrollCtrl,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _items.length + (_hasMore ? 1 : 0),
+                  itemCount: _items.length + (_loadingMore ? 1 : 0),
                   itemBuilder: (ctx, i) {
                     if (i == _items.length) {
-                      return Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: TextButton(
-                            onPressed: _loadMore,
-                            child: const Text('Carregar mais'),
-                          ),
-                        ),
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
                       );
                     }
                     final item = _items[i];

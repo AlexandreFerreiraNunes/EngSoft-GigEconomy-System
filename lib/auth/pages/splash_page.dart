@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/auth_storage.dart';
-import 'login_page.dart';
-import 'register_page.dart';
 import '../../shell/pages/shell_page.dart';
+import 'welcome_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -12,29 +11,98 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
+class _SplashPageState extends State<SplashPage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _fadeIn;
+  late Animation<double> _opacity;
+  late Animation<double> _scale;
+
+  bool? _isLoggedIn;
+  bool _animationDone = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _fadeIn = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+
+    // Animation: fade-in (0→1) then fade-out (1→0), total 2.4s
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+
+    _opacity = TweenSequence<double>([
+      // 0–40%: fade in (0 → 1)
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 40,
+      ),
+      // 40–65%: hold at 1
+      TweenSequenceItem(
+        tween: ConstantTween(1.0),
+        weight: 25,
+      ),
+      // 65–100%: fade out (1 → 0)
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 35,
+      ),
+    ]).animate(_ctrl);
+
+    _scale = TweenSequence<double>([
+      // 0–40%: scale up from 0.7 to 1.0
+      TweenSequenceItem(
+        tween: Tween(begin: 0.7, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 40,
+      ),
+      // 40–65%: hold at 1
+      TweenSequenceItem(
+        tween: ConstantTween(1.0),
+        weight: 25,
+      ),
+      // 65–100%: scale down slightly
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.85)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 35,
+      ),
+    ]).animate(_ctrl);
+
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _animationDone = true;
+        _tryNavigate();
+      }
+    });
+
     _ctrl.forward();
     _checkAuth();
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
     final loggedIn = await AuthStorage.isLoggedIn();
-    if (loggedIn) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ShellPage()),
-        (_) => false,
-      );
-    }
+    _isLoggedIn = loggedIn;
+    _tryNavigate();
+  }
+
+  void _tryNavigate() {
+    if (!_animationDone || _isLoggedIn == null || !mounted) return;
+
+    final destination = _isLoggedIn!
+        ? const ShellPage()
+        : const WelcomePage();
+
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destination,
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+      (_) => false,
+    );
   }
 
   @override
@@ -48,6 +116,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     return Scaffold(
       body: Container(
         width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -55,52 +124,23 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
             colors: [kPrimary, kPrimaryDark],
           ),
         ),
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 3),
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: const Icon(Icons.account_balance_wallet, size: 54, color: Colors.white),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'GigFinance',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Controle suas finanças\nde forma simples',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.85), height: 1.4),
-                  ),
-                  const Spacer(flex: 3),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kPrimary),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginPage())),
-                    child: const Text('Entrar'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white, width: 1.5),
-                    ),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage())),
-                    child: const Text('Cadastrar'),
-                  ),
-                  const SizedBox(height: 48),
-                ],
-              ),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _opacity.value,
+                child: Transform.scale(
+                  scale: _scale.value,
+                  child: child,
+                ),
+              );
+            },
+            child: Image.asset(
+              'assets/logo_gig.png',
+              width: 200,
+              height: 200,
+              fit: BoxFit.contain,
             ),
           ),
         ),

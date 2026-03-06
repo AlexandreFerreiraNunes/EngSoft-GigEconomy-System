@@ -28,14 +28,18 @@ class TransactionsApi {
     String? category,
     String? startDate,
     String? endDate,
-    int page = 1,
+    int limit = 20,
+    int offset = 0,
+    String ordering = '-created_at',
   }) async {
     final params = <String>[];
     if (type != null) params.add('type=$type');
     if (category != null) params.add('category=$category');
     if (startDate != null) params.add('start_date=$startDate');
     if (endDate != null) params.add('end_date=$endDate');
-    params.add('page=$page');
+    params.add('limit=$limit');
+    params.add('offset=$offset');
+    params.add('ordering=$ordering');
     final query = params.join('&');
     debugPrint('[TransactionsApi] list() called — query: $query');
     final resp = await ApiClient.get('/transactions?$query');
