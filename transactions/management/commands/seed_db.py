@@ -219,20 +219,20 @@ class Command(BaseCommand):
         two_months_ago = _add_months(today, -2)
         _create_goal_with_created_at(
             user=reached_user,
-            amount=Decimal("5000.00"),
+            amount=Decimal("2500.00"),
             is_active=False,
             created_at=_aware_dt(two_months_ago.replace(day=1), rng),
         )
         _create_goal_with_created_at(
             user=reached_user,
-            amount=Decimal("6500.00"),
+            amount=Decimal("3000.00"),
             is_active=True,
             created_at=now_dt,
         )
 
         _create_goal_with_created_at(
             user=not_reached_user,
-            amount=Decimal("12000.00"),
+            amount=Decimal("4000.00"),
             is_active=True,
             created_at=now_dt,
         )
@@ -240,7 +240,7 @@ class Command(BaseCommand):
         # No active goal: create an inactive goal (tests /goals/current 404)
         _create_goal_with_created_at(
             user=no_goal_user,
-            amount=Decimal("7000.00"),
+            amount=Decimal("3500.00"),
             is_active=False,
             created_at=now_dt,
         )
@@ -276,6 +276,10 @@ class Command(BaseCommand):
             month_end = _add_months(month_start, 1)
             days = (month_end - month_start).days
             month_days = [month_start + timedelta(days=i) for i in range(days)]
+            # Never generate transactions with future dates
+            month_days = [d for d in month_days if d <= today]
+            if not month_days:
+                continue
 
             # Reached/not reached: always have activity
             created, income_created, expense_created = self._seed_month(
@@ -346,14 +350,55 @@ class Command(BaseCommand):
         income_created: int,
         expense_created: int,
     ) -> tuple[int, int, int]:
+        # --- Notas realistas por categoria de receita ---
+        income_notes: dict[str, list[str | None]] = {
+            "Uber": [None, "Corrida centro", "Corrida aeroporto", "Viagem longa", "Corrida noturna", "UberX"],
+            "99": [None, "Corrida rápida", "Corrida pop", "Viagem bairro", "Corrida noturna"],
+            "iFood": [None, "Entrega almoço", "Entrega jantar", "Pedido grande", "Entrega rápida", "2 entregas"],
+            "Rappi": [None, "Entrega mercado", "Entrega farmácia", "Entrega restaurante", "Pedido duplo"],
+            "Loggi": [None, "Pacote centro", "Entrega documento", "Pacote grande", "Rota fixa"],
+            "Freelance": [None, "Frete particular", "Mudança pequena", "Serviço avulso"],
+            "Outros": [None, "Gorjeta", "Bônus semanal", "Indicação"],
+        }
+        # --- Notas realistas por categoria de despesa ---
+        expense_notes: dict[str, list[str | None]] = {
+            "Combustível": [None, "Gasolina", "Etanol", "Abastecimento completo", "Posto Shell", "Posto BR"],
+            "Alimentação": [None, "Almoço", "Lanche rápido", "Marmita", "Café da manhã", "Jantar"],
+            "Manutenção do veículo": [None, "Troca de óleo", "Pneu furado", "Revisão", "Pastilha de freio", "Lavagem"],
+            "Aluguel / Moradia": [None, "Aluguel", "Conta de luz", "Conta de água", "Internet", "Condomínio"],
+            "Saúde": [None, "Farmácia", "Consulta médica", "Exame", "Remédio"],
+            "Outros": [None, "Recarga celular", "Seguro veículo", "Multa", "Estacionamento"],
+        }
+        # --- Faixas de valor realistas por categoria de receita (max R$120) ---
+        income_ranges: dict[str, tuple[str, str]] = {
+            "Uber": ("18.00", "120.00"),
+            "99": ("15.00", "95.00"),
+            "iFood": ("12.00", "85.00"),
+            "Rappi": ("10.00", "75.00"),
+            "Loggi": ("15.00", "90.00"),
+            "Freelance": ("25.00", "120.00"),
+            "Outros": ("5.00", "60.00"),
+        }
+        # --- Faixas de valor realistas por categoria de despesa (max R$120) ---
+        expense_ranges: dict[str, tuple[str, str]] = {
+            "Combustível": ("30.00", "120.00"),
+            "Alimentação": ("8.00", "35.00"),
+            "Manutenção do veículo": ("25.00", "120.00"),
+            "Aluguel / Moradia": ("80.00", "120.00"),
+            "Saúde": ("15.00", "95.00"),
+            "Outros": ("5.00", "60.00"),
+        }
+
         for _ in range(income_count):
             d = rng.choice(month_days)
-            note = None if rng.random() < 0.6 else rng.choice(["Bônus", "Corrida longa", "Promoção", "Gorjeta"])
-            tx = _create_tx_with_created_at(
+            category = rng.choice(INCOME_CATEGORIES)
+            low, high = income_ranges.get(category, ("15.00", "120.00"))
+            note = rng.choice(income_notes.get(category, [None]))
+            _create_tx_with_created_at(
                 user=user,
                 tx_type="income",
-                category=rng.choice(INCOME_CATEGORIES),
-                amount=_decimal_amount(rng, "35.00", "320.00"),
+                category=category,
+                amount=_decimal_amount(rng, low, high),
                 note=note,
                 created_at=_aware_dt(d, rng),
             )
@@ -362,17 +407,14 @@ class Command(BaseCommand):
 
         for _ in range(expense_count):
             d = rng.choice(month_days)
-            note = None if rng.random() < 0.65 else rng.choice([
-                "Troca de óleo",
-                "Abastecimento",
-                "Refeição",
-                "Farmácia",
-            ])
+            category = rng.choice(EXPENSE_CATEGORIES)
+            low, high = expense_ranges.get(category, ("10.00", "120.00"))
+            note = rng.choice(expense_notes.get(category, [None]))
             _create_tx_with_created_at(
                 user=user,
                 tx_type="expense",
-                category=rng.choice(EXPENSE_CATEGORIES),
-                amount=_decimal_amount(rng, "10.00", "220.00"),
+                category=category,
+                amount=_decimal_amount(rng, low, high),
                 note=note,
                 created_at=_aware_dt(d, rng),
             )
@@ -403,17 +445,20 @@ class Command(BaseCommand):
         if total_income >= goal.amount:
             return
 
-        # Add a top-up income on today's date to ensure goal_reached=True.
+        # Add multiple small incomes (max R$120 each) to cover the gap.
         today = timezone.now().date()
-        missing = (goal.amount - total_income) + Decimal("150.00")
-        _create_tx_with_created_at(
-            user=user,
-            tx_type="income",
-            category=rng.choice(INCOME_CATEGORIES),
-            amount=missing.quantize(Decimal("0.01")),
-            note="Ajuste seed: atingir meta",
-            created_at=_aware_dt(today, rng),
-        )
+        missing = (goal.amount - total_income) + Decimal("50.00")
+        while missing > Decimal("0"):
+            chunk = min(missing, _decimal_amount(rng, "60.00", "120.00"))
+            _create_tx_with_created_at(
+                user=user,
+                tx_type="income",
+                category=rng.choice(INCOME_CATEGORIES),
+                amount=chunk.quantize(Decimal("0.01")),
+                note=rng.choice(["Corrida longa", "Viagem aeroporto", "Entrega grande", "Bônus"]),
+                created_at=_aware_dt(today, rng),
+            )
+            missing -= chunk
 
     def _force_goal_not_reached_current_month(
         self,
@@ -436,9 +481,9 @@ class Command(BaseCommand):
             or Decimal("0")
         )
 
-        # Ensure total_income < goal.amount. If not, increase goal.
+        # Ensure total_income < goal.amount. If not, increase goal slightly.
         if total_income >= goal.amount:
-            new_goal = (total_income + Decimal("2000.00")).quantize(Decimal("0.01"))
+            new_goal = (total_income + Decimal("800.00")).quantize(Decimal("0.01"))
             Goal.objects.filter(pk=goal.pk).update(amount=new_goal)
             goal.amount = new_goal
 
@@ -467,7 +512,7 @@ class Command(BaseCommand):
                 user=user,
                 tx_type="expense",
                 category=cat,
-                amount=_decimal_amount(rng, "25.00", "120.00"),
+                amount=_decimal_amount(rng, "15.00", "85.00"),
                 note="Ajuste seed: cobrir categoria",
                 created_at=_aware_dt(today, rng),
             )
