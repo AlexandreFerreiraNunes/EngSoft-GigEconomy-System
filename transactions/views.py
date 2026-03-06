@@ -15,7 +15,20 @@ class TransactionListView(generics.ListCreateAPIView):
         return TransactionListSerializer
 
     def get_queryset(self):
-        qs = Transaction.objects.filter(user=self.request.user).order_by("-created_at")
+        qs = Transaction.objects.filter(user=self.request.user)
+
+        # --- Ordering ---
+        ordering = self.request.query_params.get("ordering", "-created_at")
+        allowed_ordering = {
+            "created_at", "-created_at",
+            "amount", "-amount",
+            "category", "-category",
+        }
+        if ordering not in allowed_ordering:
+            ordering = "-created_at"
+        qs = qs.order_by(ordering)
+
+        # --- Filters ---
         tx_type = self.request.query_params.get("type")
         category = self.request.query_params.get("category")
         start_date = self.request.query_params.get("start_date")
