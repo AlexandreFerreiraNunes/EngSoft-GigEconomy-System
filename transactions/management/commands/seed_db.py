@@ -45,8 +45,9 @@ def _month_window(ref: date) -> tuple[date, date]:
     return start, next_month
 
 
-def _aware_dt(d: date, hour: int, minute: int, second: int = 0) -> datetime:
-    dt = datetime.combine(d, time(hour, minute, second))
+def _aware_dt(d: date) -> datetime:
+    """Return midnight of the given date as a timezone-aware datetime."""
+    dt = datetime.combine(d, time(0, 0, 0))
     tz = timezone.get_current_timezone()
     return timezone.make_aware(dt, tz)
 
@@ -292,14 +293,14 @@ class Command(BaseCommand):
             user=users["joao_motorista"], amount=_dec(5000),
             is_active=False,
             created_at=_aware_dt(
-                _add_months(today, -3).replace(day=1), 9, 0,
+                _add_months(today, -3).replace(day=1),
             ),
         )
         _create_goal(
             user=users["joao_motorista"], amount=_dec(4500),
             is_active=True,
             created_at=_aware_dt(
-                _add_months(today, -1).replace(day=15), 10, 30,
+                _add_months(today, -1).replace(day=15),
             ),
         )
 
@@ -308,7 +309,7 @@ class Command(BaseCommand):
             user=users["maria_entregadora"], amount=_dec(8000),
             is_active=True,
             created_at=_aware_dt(
-                _add_months(today, -2).replace(day=1), 8, 0,
+                _add_months(today, -2).replace(day=1),
             ),
         )
 
@@ -317,7 +318,7 @@ class Command(BaseCommand):
             user=users["pedro_motorista"], amount=_dec(6000),
             is_active=False,
             created_at=_aware_dt(
-                _add_months(today, -4).replace(day=10), 11, 0,
+                _add_months(today, -4).replace(day=10),
             ),
         )
 
@@ -326,7 +327,7 @@ class Command(BaseCommand):
             user=users["ana_entregadora"], amount=_dec(0),
             is_active=True,
             created_at=_aware_dt(
-                _add_months(today, -1).replace(day=1), 7, 0,
+                _add_months(today, -1).replace(day=1),
             ),
         )
 
@@ -390,11 +391,7 @@ class Command(BaseCommand):
             else:
                 num_rides = rng.randint(4, 12)
 
-            start_hour = rng.randint(6, 9)
             for ride_i in range(num_rides):
-                hour = min(23, start_hour + ride_i * rng.randint(1, 3))
-                minute = rng.randint(0, 59)
-
                 platform = rng.choices(
                     platforms, weights=platform_weights, k=1,
                 )[0]
@@ -405,7 +402,7 @@ class Command(BaseCommand):
                 _create_tx(
                     user=user, tx_type="income", category=platform,
                     amount=amount, note=note,
-                    created_at=_aware_dt(d, hour, minute),
+                    created_at=_aware_dt(d),
                 )
                 stats["total"] += 1
                 stats["income"] += 1
@@ -421,8 +418,6 @@ class Command(BaseCommand):
 
             for _ in range(count):
                 d = rng.choice(days)
-                hour = rng.randint(7, 21)
-                minute = rng.randint(0, 59)
 
                 low, high = pattern["min"], pattern["max"]
                 amount = _dec(rng.uniform(low, high))
@@ -431,7 +426,7 @@ class Command(BaseCommand):
                 _create_tx(
                     user=user, tx_type="expense", category=category,
                     amount=amount, note=note,
-                    created_at=_aware_dt(d, hour, minute),
+                    created_at=_aware_dt(d),
                 )
                 stats["total"] += 1
                 stats["expense"] += 1
@@ -461,9 +456,7 @@ class Command(BaseCommand):
             user=user, tx_type="income", category="Uber",
             amount=missing.quantize(Decimal("0.01")),
             note="Bônus semanal",
-            created_at=_aware_dt(
-                today, rng.randint(14, 18), rng.randint(0, 59),
-            ),
+            created_at=_aware_dt(today),
         )
 
     def _guarantee_goal_not_reached(self, user):
@@ -501,7 +494,5 @@ class Command(BaseCommand):
                 user=user, tx_type="expense", category=cat,
                 amount=_dec(rng.uniform(pattern["min"], pattern["max"])),
                 note=rng.choice(pattern["notes"]),
-                created_at=_aware_dt(
-                    today, rng.randint(8, 20), rng.randint(0, 59),
-                ),
+                created_at=_aware_dt(today),
             )
