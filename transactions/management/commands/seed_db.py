@@ -76,15 +76,15 @@ def _create_goal(*, user, amount, is_active, created_at) -> Goal:
 # Realistic patterns
 # ---------------------------------------------------------------------------
 
-# Income ranges per platform (min, max) in BRL
+# Income ranges per platform (min, max) in BRL — max R$120
 PLATFORM_INCOME = {
-    "Uber":      (18.0, 85.0),
-    "99":        (15.0, 70.0),
-    "iFood":     (8.0, 38.0),
-    "Rappi":     (10.0, 42.0),
-    "Loggi":     (25.0, 95.0),
-    "Freelance": (50.0, 300.0),
-    "Outros":    (20.0, 150.0),
+    "Uber":      (12.0, 65.0),
+    "99":        (10.0, 55.0),
+    "iFood":     (6.0, 30.0),
+    "Rappi":     (8.0, 32.0),
+    "Loggi":     (15.0, 60.0),
+    "Freelance": (30.0, 120.0),
+    "Outros":    (10.0, 80.0),
 }
 
 # Weight for how often each platform shows up (motorista vs entregador)
@@ -114,35 +114,36 @@ INCOME_NOTES = {
 }
 
 # Expense patterns: min/max (BRL), freq range per month, realistic notes
+# Todos os valores limitados a no máximo R$120 por transação
 EXPENSE_PATTERNS = {
     "Combustível": {
-        "min": 50.0, "max": 220.0, "freq": (6, 10),
+        "min": 30.0, "max": 120.0, "freq": (3, 5),
         "notes": ["Gasolina", "Etanol", "Abastecimento completo",
                   "Gasolina aditivada", None],
     },
     "Alimentação": {
-        "min": 12.0, "max": 55.0, "freq": (12, 22),
+        "min": 8.0, "max": 35.0, "freq": (8, 15),
         "notes": ["Almoço", "Marmita", "Lanche rápido",
                   "Café + pão de queijo", "Jantar", "Água + salgado", None],
     },
     "Manutenção do veículo": {
-        "min": 80.0, "max": 450.0, "freq": (1, 3),
-        "notes": ["Troca de óleo", "Pneu novo", "Revisão",
+        "min": 40.0, "max": 120.0, "freq": (0, 2),
+        "notes": ["Troca de óleo", "Revisão",
                   "Pastilha de freio", "Alinhamento + balanceamento",
                   "Filtro de ar"],
     },
     "Aluguel / Moradia": {
-        "min": 700.0, "max": 1200.0, "freq": (1, 1),
-        "notes": ["Aluguel", "Aluguel + condomínio"],
+        "min": 80.0, "max": 120.0, "freq": (1, 1),
+        "notes": ["Aluguel (parcela)", "Condomínio"],
     },
     "Saúde": {
-        "min": 25.0, "max": 180.0, "freq": (0, 2),
+        "min": 15.0, "max": 90.0, "freq": (0, 2),
         "notes": ["Farmácia", "Consulta médica", "Exame", "Remédio"],
     },
     "Outros": {
-        "min": 15.0, "max": 120.0, "freq": (1, 4),
+        "min": 10.0, "max": 80.0, "freq": (1, 3),
         "notes": ["Recarga celular", "Conta de internet", "Conta de luz",
-                  "Seguro veicular", "Lavagem carro", None],
+                  "Lavagem carro", None],
     },
 }
 
@@ -288,25 +289,25 @@ class Command(BaseCommand):
         for u in users.values():
             Goal.objects.filter(user=u).delete()
 
-        # João: old inactive goal + current active R$4.500 (will be reached)
+        # João: old inactive goal + current active R$600 (will be reached)
         _create_goal(
-            user=users["joao_motorista"], amount=_dec(5000),
+            user=users["joao_motorista"], amount=_dec(800),
             is_active=False,
             created_at=_aware_dt(
                 _add_months(today, -3).replace(day=1),
             ),
         )
         _create_goal(
-            user=users["joao_motorista"], amount=_dec(4500),
+            user=users["joao_motorista"], amount=_dec(600),
             is_active=True,
             created_at=_aware_dt(
                 _add_months(today, -1).replace(day=15),
             ),
         )
 
-        # Maria: active R$8.000 (will NOT be reached)
+        # Maria: active R$2.500 (will NOT be reached with few days)
         _create_goal(
-            user=users["maria_entregadora"], amount=_dec(8000),
+            user=users["maria_entregadora"], amount=_dec(2500),
             is_active=True,
             created_at=_aware_dt(
                 _add_months(today, -2).replace(day=1),
@@ -315,7 +316,7 @@ class Command(BaseCommand):
 
         # Pedro: inactive goal only → /goals/current returns 404
         _create_goal(
-            user=users["pedro_motorista"], amount=_dec(6000),
+            user=users["pedro_motorista"], amount=_dec(1000),
             is_active=False,
             created_at=_aware_dt(
                 _add_months(today, -4).replace(day=10),
@@ -378,18 +379,15 @@ class Command(BaseCommand):
         platforms = list(weights.keys())
         platform_weights = [weights[p] for p in platforms]
 
-        # Pick work days (~70‒85% of available days)
-        num_work_days = max(1, int(len(days) * rng.uniform(0.70, 0.85)))
+        # Pick work days (~55‒70% of available days)
+        num_work_days = max(1, int(len(days) * rng.uniform(0.55, 0.70)))
         work_days = sorted(
             rng.sample(days, min(num_work_days, len(days)))
         )
 
-        # --- INCOME: multiple rides/deliveries per work day ---
+        # --- INCOME: 1-2 rides/deliveries per work day ---
         for d in work_days:
-            if profile == "motorista":
-                num_rides = rng.randint(3, 8)
-            else:
-                num_rides = rng.randint(4, 12)
+            num_rides = rng.randint(1, 2)
 
             for ride_i in range(num_rides):
                 platform = rng.choices(
@@ -451,13 +449,26 @@ class Command(BaseCommand):
         if total >= goal.amount:
             return
 
-        missing = goal.amount - total + _dec(rng.uniform(50, 200))
-        _create_tx(
-            user=user, tx_type="income", category="Uber",
-            amount=missing.quantize(Decimal("0.01")),
-            note="Bônus semanal",
-            created_at=_aware_dt(today),
-        )
+        missing = goal.amount - total + _dec(rng.uniform(5, 30))
+        # Split into small chunks (max R$120) spread across recent days
+        categories = ["Uber", "99"]
+        notes = ["Corrida extra", "Corrida longa"]
+        start_of_month = _month_start(today)
+        recent_days = [
+            start_of_month + timedelta(days=i)
+            for i in range((today - start_of_month).days + 1)
+        ]
+        while missing > 0:
+            chunk = min(missing, _dec(rng.uniform(20, 80)))
+            cat = rng.choice(categories)
+            d = rng.choice(recent_days) if recent_days else today
+            _create_tx(
+                user=user, tx_type="income", category=cat,
+                amount=chunk.quantize(Decimal("0.01")),
+                note=rng.choice(notes),
+                created_at=_aware_dt(d),
+            )
+            missing -= chunk
 
     def _guarantee_goal_not_reached(self, user):
         """Ensure Maria's current-month income < her active goal."""
