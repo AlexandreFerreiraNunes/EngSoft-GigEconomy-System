@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/helpers.dart';
@@ -26,18 +25,7 @@ class DashboardPageState extends State<DashboardPage> {
 
   Future<void> loadData() async {
     setState(() => _loading = true);
-    debugPrint('[Dashboard] loadData() chamando DashboardApi.getDailyTarget()...');
     final data = await DashboardApi.getDailyTarget();
-    debugPrint('[Dashboard] loadData() data recebida: $data');
-    if (data != null) {
-      debugPrint('[Dashboard] balance_month  = ${data['balance_month']}');
-      debugPrint('[Dashboard] goal_amount    = ${data['goal_amount']}');
-      debugPrint('[Dashboard] daily_needed   = ${data['daily_needed']}');
-      debugPrint('[Dashboard] goal_reached   = ${data['goal_reached']}');
-      debugPrint('[Dashboard] days_remaining = ${data['days_remaining']}');
-    } else {
-      debugPrint('[Dashboard] loadData() — API retornou null!');
-    }
     if (!mounted) return;
     setState(() {
       _data = data;
